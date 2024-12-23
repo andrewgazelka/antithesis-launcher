@@ -15,6 +15,21 @@ fn get_git_email() -> String {
         .unwrap_or_default()
 }
 
+fn process_image(image: &str, tenant_name: Option<&str>) -> String {
+    if image.contains('/') {
+        image.to_string()
+    } else {
+        tenant_name.map_or_else(
+            || image.to_string(),
+            |tenant| {
+                format!(
+                    "us-central1-docker.pkg.dev/molten-verve-216720/{tenant}-repository/{image}"
+                )
+            },
+        )
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -45,6 +60,10 @@ struct Args {
     /// Docker images to test (can be specified multiple times)
     #[arg(long = "image")]
     images: Vec<String>,
+
+    /// Tenant name (defaults to `TENANT_NAME` env var)
+    #[arg(long, env = "TENANT_NAME")]
+    tenant_name: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -52,15 +71,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
+    let processed_config_image = process_image(&args.config_image, args.tenant_name.as_deref());
+    let processed_images: Vec<String> = args
+        .images
+        .iter()
+        .map(|img| process_image(img, args.tenant_name.as_deref()))
+        .collect();
+
     let mut params = json!({
         "antithesis.duration": args.duration,
         "antithesis.description": args.description,
-        "antithesis.config_image": args.config_image,
+        "antithesis.config_image": processed_config_image,
         "antithesis.recipients": args.recipients,
     });
 
-    if !args.images.is_empty() {
-        let images = args.images.join(";");
+    if !processed_images.is_empty() {
+        let images = processed_images.join(";");
         params
             .as_object_mut()
             .unwrap()
