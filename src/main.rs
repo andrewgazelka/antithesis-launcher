@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "antithesis.duration": args.duration,
         "antithesis.description": args.description,
         "antithesis.config_image": processed_config_image,
-        "antithesis.recipients": args.recipients,
+        "antithesis.report.recipients": args.recipients,
     });
 
     if !processed_images.is_empty() {
